@@ -1,0 +1,17 @@
+[package]
+edition = "2021"
+name = "cxx-memory"
+version = "0.0.0"
+authors = ["silvanshade <silvanshade@users.noreply.github.com>"]
+license = "Apache-2.0 WITH LLVM-exception"
+repository = "https://github.com/silvanshade/cxx-memory"
+description = "cxx support for advanced C++ memory semantics"
+
+[features]
+alloc = []
+std = ["alloc"]
+default = ["std", "cxx"]
+cxx = ["cxx/c++20"]
+
+[dependencies]
+cxx = { version = "1.0", optional = true }
