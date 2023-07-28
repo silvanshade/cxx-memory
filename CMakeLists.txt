@@ -12,28 +12,19 @@ set(CMAKE_CXX_COMPILER "clang++")
 add_library(cxx-memory-abi STATIC
   crates/cxx-memory-abi/cxx/lib/cmake.cxx
 )
-target_compile_definitions(cxx-memory-abi PUBLIC LLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING)
 target_include_directories(cxx-memory-abi PUBLIC
-  ../cxx-memory-abi/..
-  cxx/include
+  ../cxx-memory/crates/cxx-memory-abi/..
   target/cxxbridge
-  target/cxxbridge/rust
-  ../swift-project/build/Ninja-ReleaseAssert/llvm-linux-x86_64/include
-  ../swift-project/build/Ninja-ReleaseAssert/llvm-linux-x86_64/tools/clang/include
-  ../swift-project/build/Ninja-ReleaseAssert/swift-linux-x86_64/include
-  ../swift-project/llvm-project/clang/include
-  ../swift-project/llvm-project/llvm/include
-  ../swift-project
-  ../swift-project/swift/include
-  ../swift-project/swift/stdlib/public/SwiftShims
 )
+target_compile_definitions(cxx-memory-abi PUBLIC _LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS)
 target_compile_options(cxx-memory-abi PUBLIC
-  -std=gnu++2b
+  -std=gnu++20
   # -stdlib=libc++
-  # -lc++abi
   -Werror
   -Wall
   -Wextra
+  -Wthread-safety
+  -Wthread-safety-beta
   -pedantic
   -Wno-ambiguous-reversed-operator
   -Wno-deprecated-anon-enum-enum-conversion
