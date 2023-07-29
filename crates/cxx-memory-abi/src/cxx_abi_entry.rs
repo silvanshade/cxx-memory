@@ -47,6 +47,12 @@ impl<'ctx> CxxAbiEntry<'ctx> {
                     let lifetimes = ::cxx_memory_abi::indexmap::IndexMap::from_iter([#(#lifetimes),*].into_iter());
                     let align = self::ffi::cxx_abi_align();
                     let size = self::ffi::cxx_abi_size();
+                    let cxx_has_operator_equal = self::ffi::cxx_has_operator_equal();
+                    let cxx_has_operator_not_equal = self::ffi::cxx_has_operator_not_equal();
+                    let cxx_has_operator_less_than = self::ffi::cxx_has_operator_less_than();
+                    let cxx_has_operator_less_than_or_equal = self::ffi::cxx_has_operator_less_than_or_equal();
+                    let cxx_has_operator_greater_than = self::ffi::cxx_has_operator_greater_than();
+                    let cxx_has_operator_greater_than_or_equal = self::ffi::cxx_has_operator_greater_than_or_equal();
                     let is_rust_cxx_extern_type_trivial = {
                         let cxx_is_trivially_movable = self::ffi::cxx_is_trivially_movable();
                         let rust_should_impl_cxx_extern_type_trivial = self::ffi::rust_should_impl_cxx_extern_type_trivial();
@@ -64,6 +70,11 @@ impl<'ctx> CxxAbiEntry<'ctx> {
                     let is_rust_default = self::ffi::rust_should_impl_default();
                     let is_rust_copy_new = self::ffi::rust_should_impl_cxx_memory_copy_new();
                     let is_rust_move_new = self::ffi::rust_should_impl_cxx_memory_move_new();
+                    let is_rust_eq = self::ffi::rust_should_impl_eq();
+                    let is_rust_partial_eq = self::ffi::rust_should_impl_partial_eq();
+                    let is_rust_partial_ord = self::ffi::rust_should_impl_partial_ord();
+                    let is_rust_ord = self::ffi::rust_should_impl_ord();
+                    let is_rust_hash = self::ffi::rust_should_impl_hash();
                     ::cxx_memory_abi::CxxAbiArtifactInfo {
                         path_components,
                         path_descendants,
@@ -74,6 +85,12 @@ impl<'ctx> CxxAbiEntry<'ctx> {
                         lifetimes,
                         align,
                         size,
+                        cxx_has_operator_equal,
+                        cxx_has_operator_not_equal,
+                        cxx_has_operator_less_than,
+                        cxx_has_operator_less_than_or_equal,
+                        cxx_has_operator_greater_than,
+                        cxx_has_operator_greater_than_or_equal,
                         is_rust_cxx_extern_type_trivial,
                         is_rust_unpin,
                         is_rust_send,
@@ -83,6 +100,11 @@ impl<'ctx> CxxAbiEntry<'ctx> {
                         is_rust_drop,
                         is_rust_copy_new,
                         is_rust_move_new,
+                        is_rust_eq,
+                        is_rust_partial_eq,
+                        is_rust_partial_ord,
+                        is_rust_ord,
+                        is_rust_hash,
                     }
                 }
             },
@@ -116,6 +138,16 @@ impl<'ctx> CxxAbiEntry<'ctx> {
                         fn cxx_is_trivially_copyable() -> bool;
                         fn cxx_is_trivially_movable() -> bool;
                         fn cxx_is_trivially_destructible() -> bool;
+                        fn cxx_is_equality_comparable() -> bool;
+                        fn cxx_has_operator_equal() -> bool;
+                        fn cxx_has_operator_not_equal() -> bool;
+                        fn cxx_has_operator_less_than() -> bool;
+                        fn cxx_has_operator_less_than_or_equal() -> bool;
+                        fn cxx_has_operator_greater_than() -> bool;
+                        fn cxx_has_operator_greater_than_or_equal() -> bool;
+                        fn cxx_is_partially_ordered() -> bool;
+                        fn cxx_is_totally_ordered() -> bool;
+                        fn cxx_is_hashable() -> bool;
                         fn rust_should_impl_cxx_extern_type_trivial() -> bool;
                         fn rust_should_impl_unpin() -> bool;
                         fn rust_should_impl_send() -> bool;
@@ -125,6 +157,11 @@ impl<'ctx> CxxAbiEntry<'ctx> {
                         fn rust_should_impl_default() -> bool;
                         fn rust_should_impl_cxx_memory_copy_new() -> bool;
                         fn rust_should_impl_cxx_memory_move_new() -> bool;
+                        fn rust_should_impl_eq() -> bool;
+                        fn rust_should_impl_partial_eq() -> bool;
+                        fn rust_should_impl_partial_ord() -> bool;
+                        fn rust_should_impl_ord() -> bool;
+                        fn rust_should_impl_hash() -> bool;
                     }
                 }
             },

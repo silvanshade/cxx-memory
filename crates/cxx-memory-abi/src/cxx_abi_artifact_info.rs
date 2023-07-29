@@ -12,6 +12,12 @@ pub struct CxxAbiArtifactInfo {
     pub lifetimes: ::indexmap::IndexMap<&'static str, ::alloc::vec::Vec<&'static str>>,
     pub align: usize,
     pub size: usize,
+    pub cxx_has_operator_equal: bool,
+    pub cxx_has_operator_not_equal: bool,
+    pub cxx_has_operator_less_than: bool,
+    pub cxx_has_operator_less_than_or_equal: bool,
+    pub cxx_has_operator_greater_than: bool,
+    pub cxx_has_operator_greater_than_or_equal: bool,
     pub is_rust_cxx_extern_type_trivial: bool,
     pub is_rust_unpin: bool,
     pub is_rust_send: bool,
@@ -21,6 +27,11 @@ pub struct CxxAbiArtifactInfo {
     pub is_rust_drop: bool,
     pub is_rust_copy_new: bool,
     pub is_rust_move_new: bool,
+    pub is_rust_eq: bool,
+    pub is_rust_partial_eq: bool,
+    pub is_rust_partial_ord: bool,
+    pub is_rust_ord: bool,
+    pub is_rust_hash: bool,
 }
 
 #[cfg(feature = "alloc")]
@@ -42,6 +53,11 @@ impl CxxAbiArtifactInfo {
         let item_impl_default = emit_impl_default(self, ident, generics_binder, generics);
         let item_impl_moveit_copy_new = emit_impl_moveit_copy_new(self, ident, generics_binder, generics);
         let item_impl_moveit_move_new = emit_impl_moveit_move_new(self, ident, generics_binder, generics);
+        let item_impl_partial_eq = emit_impl_partial_eq(self, ident, generics_binder, generics);
+        let item_impl_eq = emit_impl_eq(self, ident, generics_binder, generics);
+        let item_impl_partial_ord = emit_impl_partial_ord(self, ident, generics_binder, generics);
+        let item_impl_ord = emit_impl_ord(self, ident, generics_binder, generics);
+        let item_impl_hash = emit_impl_hash(self, ident, generics_binder, generics);
         let item_mod_cxx_bridge = emit_item_mod_cxx_bridge(self, ident, generics);
         let item_info_test_module = emit_info_test_module(self, ident, align, size);
         syn::parse_quote! {
@@ -54,6 +70,11 @@ impl CxxAbiArtifactInfo {
             #item_impl_default
             #item_impl_moveit_copy_new
             #item_impl_moveit_move_new
+            #item_impl_partial_eq
+            #item_impl_eq
+            #item_impl_partial_ord
+            #item_impl_ord
+            #item_impl_hash
             #item_mod_cxx_bridge
             #item_info_test_module
         }
@@ -341,6 +362,183 @@ fn emit_impl_moveit_move_new(
 }
 
 #[cfg(feature = "alloc")]
+fn emit_impl_partial_eq(
+    info: &CxxAbiArtifactInfo,
+    ident: &syn::Ident,
+    generics_binder: &syn::Generics,
+    generics: &syn::Generics,
+) -> Option<syn::ItemImpl> {
+    if info.is_rust_partial_eq {
+        let ne: Option<syn::ImplItemFn> = if info.cxx_has_operator_not_equal {
+            Some(syn::parse_quote! {
+                #[inline]
+                fn ne(&self, other: &Self) -> bool {
+                    self::ffi::cxx_operator_not_equal(self, other)
+                }
+            })
+        } else {
+            None
+        };
+        Some(syn::parse_quote! {
+            impl #generics_binder ::core::cmp::PartialEq for #ident #generics {
+                #[inline]
+                fn eq(&self, other: &Self) -> bool {
+                    self::ffi::cxx_operator_equal(self, other)
+                }
+                #ne
+            }
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "alloc")]
+fn emit_impl_eq(
+    info: &CxxAbiArtifactInfo,
+    ident: &syn::Ident,
+    generics_binder: &syn::Generics,
+    generics: &syn::Generics,
+) -> Option<syn::ItemImpl> {
+    if info.is_rust_eq {
+        Some(syn::parse_quote! {
+            impl #generics_binder ::core::cmp::Eq for #ident #generics {}
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "alloc")]
+fn emit_impl_partial_ord(
+    info: &CxxAbiArtifactInfo,
+    ident: &syn::Ident,
+    generics_binder: &syn::Generics,
+    generics: &syn::Generics,
+) -> Option<syn::ItemImpl> {
+    if info.is_rust_partial_ord {
+        let lt: Option<syn::ImplItemFn> = if info.cxx_has_operator_less_than {
+            Some(syn::parse_quote! {
+                #[inline]
+                fn lt(&self, other: &Self) -> bool {
+                    self::ffi::cxx_operator_less_than(self, other)
+                }
+            })
+        } else {
+            None
+        };
+        let le: Option<syn::ImplItemFn> = if info.cxx_has_operator_less_than_or_equal {
+            Some(syn::parse_quote! {
+                #[inline]
+                fn le(&self, other: &Self) -> bool {
+                    self::ffi::cxx_operator_less_than_or_equal(self, other)
+                }
+            })
+        } else {
+            None
+        };
+        let gt: Option<syn::ImplItemFn> = if info.cxx_has_operator_greater_than {
+            Some(syn::parse_quote! {
+                #[inline]
+                fn gt(&self, other: &Self) -> bool {
+                    self::ffi::cxx_operator_greater_than(self, other)
+                }
+            })
+        } else {
+            None
+        };
+        let ge: Option<syn::ImplItemFn> = if info.cxx_has_operator_greater_than_or_equal {
+            Some(syn::parse_quote! {
+                #[inline]
+                fn ge(&self, other: &Self) -> bool {
+                    self::ffi::cxx_operator_greater_than_or_equal(self, other)
+                }
+            })
+        } else {
+            None
+        };
+        Some(syn::parse_quote! {
+            impl #generics_binder ::core::cmp::PartialOrd for #ident #generics {
+                #[inline]
+                fn partial_cmp(&self, other: &Self) -> Option<::core::cmp::Ordering> {
+                    let res = self::ffi::cxx_operator_three_way_comparison(self, other);
+                    if res == -1 {
+                        Some(::core::cmp::Ordering::Less)
+                    } else if res == 1 {
+                        Some(::core::cmp::Ordering::Greater)
+                    } else if res == 0 {
+                        Some(::core::cmp::Ordering::Equal)
+                    } else {
+                        ::core::assert_eq!(res, ::core::primitive::i8::MAX);
+                        None
+                    }
+                }
+                #lt
+                #le
+                #gt
+                #ge
+            }
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "alloc")]
+fn emit_impl_ord(
+    info: &CxxAbiArtifactInfo,
+    ident: &syn::Ident,
+    generics_binder: &syn::Generics,
+    generics: &syn::Generics,
+) -> Option<syn::ItemImpl> {
+    if info.is_rust_ord {
+        Some(syn::parse_quote! {
+            impl #generics_binder ::core::cmp::Ord for #ident #generics {
+                #[inline]
+                fn cmp(&self, other: &Self) -> ::core::cmp::Ordering {
+                    let res = self::ffi::cxx_operator_three_way_comparison(self, other);
+                    if res < 0 {
+                        ::core::cmp::Ordering::Less
+                    } else if res > 0 {
+                        ::core::cmp::Ordering::Greater
+                    } else {
+                        ::core::assert_eq!(res, 0);
+                        ::core::cmp::Ordering::Equal
+                    }
+                }
+            }
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "alloc")]
+fn emit_impl_hash(
+    info: &CxxAbiArtifactInfo,
+    ident: &syn::Ident,
+    generics_binder: &syn::Generics,
+    generics: &syn::Generics,
+) -> Option<syn::ItemImpl> {
+    if info.is_rust_hash {
+        Some(syn::parse_quote! {
+            impl #generics_binder ::core::hash::Hash for #ident #generics {
+                #[inline]
+                fn hash<H>(&self, state: &mut H)
+                where
+                    H: ::core::hash::Hasher,
+                {
+                    let hash = self::ffi::cxx_hash(self);
+                    state.write_usize(hash);
+                }
+            }
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "alloc")]
 fn emit_info_test_module(
     info: &CxxAbiArtifactInfo,
     ident: &syn::Ident,
@@ -419,6 +617,63 @@ fn emit_item_mod_cxx_bridge(info: &CxxAbiArtifactInfo, ident: &syn::Ident, gener
     } else {
         None
     };
+    let cxx_operator_equal: Option<syn::ForeignItemFn> = if info.is_rust_eq {
+        Some(syn::parse_quote! {
+            fn cxx_operator_equal #generics (This: & #ident #generics, That: & #ident #generics) -> bool;
+        })
+    } else {
+        None
+    };
+    let cxx_operator_not_equal: Option<syn::ForeignItemFn> = if info.is_rust_eq {
+        Some(syn::parse_quote! {
+            fn cxx_operator_not_equal #generics (This: & #ident #generics, That: & #ident #generics) -> bool;
+        })
+    } else {
+        None
+    };
+    let cxx_operator_less_than: Option<syn::ForeignItemFn> = if info.cxx_has_operator_less_than {
+        Some(syn::parse_quote! {
+            fn cxx_operator_less_than #generics (This: & #ident #generics, That: & #ident #generics) -> bool;
+        })
+    } else {
+        None
+    };
+    let cxx_operator_less_than_or_equal: Option<syn::ForeignItemFn> = if info.cxx_has_operator_less_than_or_equal {
+        Some(syn::parse_quote! {
+            fn cxx_operator_less_than_or_equal #generics (This: & #ident #generics, That: & #ident #generics) -> bool;
+        })
+    } else {
+        None
+    };
+    let cxx_operator_greater_than: Option<syn::ForeignItemFn> = if info.cxx_has_operator_greater_than {
+        Some(syn::parse_quote! {
+            fn cxx_operator_greater_than #generics (This: & #ident #generics, That: & #ident #generics) -> bool;
+        })
+    } else {
+        None
+    };
+    let cxx_operator_greater_than_or_equal: Option<syn::ForeignItemFn> = if info.cxx_has_operator_greater_than_or_equal
+    {
+        Some(syn::parse_quote! {
+            fn cxx_operator_greater_than_or_equal #generics (This: & #ident #generics, That: & #ident #generics) -> bool;
+        })
+    } else {
+        None
+    };
+    let cxx_operator_three_way_comparison: Option<syn::ForeignItemFn> = if info.is_rust_partial_ord {
+        Some(syn::parse_quote! {
+            fn cxx_operator_three_way_comparison #generics (This: & #ident #generics, That: & #ident #generics) -> i8;
+        })
+    } else {
+        None
+    };
+    let cxx_hash: Option<syn::ForeignItemFn> = if info.is_rust_hash {
+        Some(syn::parse_quote! {
+            fn cxx_hash #generics (This: & #ident #generics) -> usize;
+        })
+    } else {
+        None
+    };
     syn::parse_quote! {
         #[cxx::bridge]
         pub(crate) mod ffi {
@@ -433,6 +688,14 @@ fn emit_item_mod_cxx_bridge(info: &CxxAbiArtifactInfo, ident: &syn::Ident, gener
                 #cxx_move_new
                 #cxx_default_new
                 #cxx_destruct
+                #cxx_operator_equal
+                #cxx_operator_not_equal
+                #cxx_operator_less_than
+                #cxx_operator_less_than_or_equal
+                #cxx_operator_greater_than
+                #cxx_operator_greater_than_or_equal
+                #cxx_operator_three_way_comparison
+                #cxx_hash
             }
         }
     }

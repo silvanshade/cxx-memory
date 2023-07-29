@@ -2,8 +2,14 @@
 
 #include "sys/types.h"
 
+#include <compare>
+#include <concepts>
+#include <iterator>
+#include <limits>
 #include <memory>
+#include <ranges>
 #include <type_traits>
+#include <vector>
 
 // NOLINTBEGIN(google-runtime-int)
 using c_char = char;
@@ -21,6 +27,115 @@ using c_void = void;
 using c_off_t = off_t;
 using c_time_t = time_t;
 // NOLINTEND(google-runtime-int)
+
+namespace cxx_memory::abi::detection {
+template<typename T, typename... U>
+concept same_as_any_of = (std::same_as<T, U> or ...);
+
+template<typename T>
+concept has_operator_equal = requires(T const& lhs, T const& rhs) { //
+  {
+    lhs == rhs
+  } -> ::std::same_as<bool>;
+};
+
+template<typename T>
+concept has_operator_not_equal = requires(T const& lhs, T const& rhs) { //
+  {
+    lhs != rhs
+  } -> ::std::same_as<bool>;
+};
+
+template<typename T>
+concept has_operator_less_than = requires(T const& lhs, T const& rhs) { //
+  {
+    lhs < rhs
+  } -> ::std::same_as<bool>;
+};
+
+template<typename T>
+concept has_operator_less_than_or_equal = requires(T const& lhs, T const& rhs) { //
+  {
+    lhs <= rhs
+  } -> ::std::same_as<bool>;
+};
+
+template<typename T>
+concept has_operator_greater_than = requires(T const& lhs, T const& rhs) { //
+  {
+    lhs > rhs
+  } -> ::std::same_as<bool>;
+};
+
+template<typename T>
+concept has_operator_greater_than_or_equal = requires(T const& lhs, T const& rhs) { //
+  {
+    lhs >= rhs
+  } -> ::std::same_as<bool>;
+};
+
+template<typename T>
+concept has_operator_three_way_comparison = requires(T const& lhs, T const& rhs) { //
+  requires same_as_any_of<decltype(lhs <=> rhs), ::std::partial_ordering, ::std::strong_ordering>;
+};
+
+template<typename T>
+concept is_std_hashable = requires(T const& arg) { //
+  {
+    ::std::hash<T>{}(arg)
+  } -> ::std::same_as<::std::size_t>;
+};
+
+template<typename T>
+concept has_operator_std_string = requires(T const& arg) { //
+  {
+    T::operator ::std::string()(arg)
+  } -> ::std::same_as<::std::string>;
+};
+
+template<typename T>
+concept has_to_string = requires(T const& arg) { //
+  {
+    to_string(arg)
+  } -> ::std::same_as<::std::string>;
+};
+
+template<typename T>
+concept has_ostream_left_shift = requires(std::ostream& os, T const& arg) { //
+  {
+    os << arg
+  } -> ::std::same_as<::std::ostream&>;
+};
+
+template<typename T, typename It>
+concept is_constructible_from_iterator = requires(It first, It last) { //
+  requires ::std::input_iterator<It>;
+  {
+    T{ first, last }
+  } -> ::std::same_as<T>;
+};
+
+template<typename T>
+concept is_iterable = ::std::ranges::range<T>;
+
+template<typename T, typename V>
+concept is_input_iterable = requires { //
+  requires ::std::ranges::input_range<T>;
+  requires ::std::same_as<::std::iter_value_t<::std::ranges::iterator_t<T>>, ::std::remove_reference_t<V>>;
+};
+
+template<typename T>
+concept is_input_copy_iterator = requires { //
+  requires ::std::input_iterator<T>;
+  requires ::std::same_as<::std::iter_reference_t<T>, ::std::add_lvalue_reference_t<::std::iter_value_t<T>>>;
+};
+
+template<typename T>
+concept is_input_move_iterator = requires { //
+  requires ::std::input_iterator<T>;
+  requires ::std::same_as<::std::iter_reference_t<T>, ::std::add_rvalue_reference_t<::std::iter_value_t<T>>>;
+};
+} // namespace cxx_memory::abi::detection
 
 namespace cxx_memory::abi {
 template<typename T>
@@ -92,7 +207,7 @@ template<typename T>
 constexpr static inline auto
 cxx_is_trivially_movable() noexcept -> bool
 {
-  return ::std::is_trivially_move_constructible_v<T> && ::std::is_trivially_destructible_v<T>;
+  return ::std::is_trivially_move_constructible_v<T> and ::std::is_trivially_destructible_v<T>;
 }
 
 template<typename T>
@@ -101,6 +216,96 @@ constexpr static inline auto
 cxx_is_trivially_destructible() noexcept -> bool
 {
   return ::std::is_trivially_destructible_v<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_is_equality_comparable() noexcept -> bool
+{
+  return ::std::equality_comparable<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_has_operator_equal() noexcept -> bool
+{
+  return detection::has_operator_equal<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_has_operator_not_equal() noexcept -> bool
+{
+  return detection::has_operator_not_equal<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_has_operator_less_than() noexcept -> bool
+{
+  return detection::has_operator_less_than<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_has_operator_less_than_or_equal() noexcept -> bool
+{
+  return detection::has_operator_less_than_or_equal<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_has_operator_greater_than() noexcept -> bool
+{
+  return detection::has_operator_greater_than<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_has_operator_greater_than_or_equal() noexcept -> bool
+{
+  return detection::has_operator_greater_than_or_equal<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_has_operator_three_way_comparison() noexcept -> bool
+{
+  return detection::has_operator_three_way_comparison<T> or
+         (not detection::has_operator_three_way_comparison<T> and detection::has_operator_less_than<T> and
+          detection::has_operator_equal<T>);
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_is_partially_ordered() noexcept -> bool
+{
+  return cxx_has_operator_three_way_comparison<T>();
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_is_totally_ordered() noexcept -> bool
+{
+  return std::totally_ordered<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_is_hashable() noexcept -> bool
+{
+  return detection::is_std_hashable<T>;
 }
 
 template<typename T>
@@ -140,7 +345,7 @@ template<typename T>
 constexpr static inline auto
 rust_should_impl_drop() noexcept -> bool
 {
-  return cxx_is_destructible<T>() && !cxx_is_trivially_destructible<T>();
+  return cxx_is_destructible<T>() and not cxx_is_trivially_destructible<T>();
 }
 
 template<typename T>
@@ -148,7 +353,7 @@ template<typename T>
 constexpr static inline auto
 rust_should_impl_copy() noexcept -> bool
 {
-  return cxx_is_trivially_copyable<T>() && cxx_is_trivially_movable<T>() && !rust_should_impl_drop<T>();
+  return cxx_is_trivially_copyable<T>() and cxx_is_trivially_movable<T>() and not rust_should_impl_drop<T>();
 }
 
 template<typename T>
@@ -175,57 +380,207 @@ rust_should_impl_cxx_memory_move_new() noexcept -> bool
   return cxx_is_move_constructible<T>();
 }
 
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+rust_should_impl_eq() noexcept -> bool
+{
+  return cxx_is_equality_comparable<T>();
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+rust_should_impl_partial_eq() noexcept -> bool
+{
+  return cxx_has_operator_equal<T>();
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+rust_should_impl_partial_ord() noexcept -> bool
+{
+  return cxx_has_operator_three_way_comparison<T>() or
+         (cxx_has_operator_less_than<T>() and cxx_has_operator_equal<T>());
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+rust_should_impl_ord() noexcept -> bool
+{
+  return cxx_is_totally_ordered<T>();
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+rust_should_impl_hash() noexcept -> bool
+{
+  return cxx_is_hashable<T>();
+}
+
 } // namespace cxx_memory::abi
 
 namespace cxx_memory::abi {
 template<typename T, typename... Args>
+requires(cxx_is_constructible<T, Args...>())
 [[gnu::always_inline]]
 static inline auto
 cxx_placement_new(T* This [[clang::lifetimebound]], Args&&... args) noexcept -> void
 {
-  if constexpr (cxx_is_constructible<T, Args...>()) {
-    new (This) T(::std::forward<Args>(args)...);
-  }
+  new (This) T(::std::forward<Args>(args)...);
 }
 
 template<typename T>
+requires(cxx_is_default_constructible<T>())
 [[gnu::always_inline]]
 static inline auto
 cxx_default_new(T* This [[clang::lifetimebound]]) noexcept -> void
 {
-  if constexpr (cxx_is_default_constructible<T>()) {
-    cxx_placement_new(This);
-  }
+  cxx_placement_new(This);
 }
 
 template<typename T>
+requires(cxx_is_copy_constructible<T>())
 [[gnu::always_inline]]
 static inline auto
 cxx_copy_new(T* This [[clang::lifetimebound]], T const& that [[clang::lifetimebound]]) noexcept -> void
+requires ::std::is_lvalue_reference_v<decltype(that)>
 {
-  if constexpr (cxx_is_copy_constructible<T>() && ::std::is_lvalue_reference_v<decltype(that)>) {
-    new (This) T(that);
-  }
+  new (This) T(that);
 }
 
 template<typename T>
+requires(cxx_is_move_constructible<T>())
 [[gnu::always_inline]]
 static inline auto
 cxx_move_new(T* This [[clang::lifetimebound]], T&& that [[clang::lifetimebound]]) noexcept -> void
+requires ::std::is_rvalue_reference_v<decltype(that)>
 {
-  if constexpr (cxx_is_move_constructible<T>() && ::std::is_rvalue_reference_v<decltype(that)>) {
-    new (This) T(::std::forward<T>(that));
-  }
+  new (This) T(std::forward<T>(that));
 }
 
 template<typename T>
+requires(cxx_is_destructible<T>())
 [[gnu::always_inline]]
 static inline auto
 cxx_destruct(T* This [[clang::lifetimebound]]) -> void
 {
-  if constexpr (cxx_is_destructible<T>()) {
-    ::std::destroy_at(This);
+  ::std::destroy_at(This);
+}
+
+template<typename T>
+requires(cxx_has_operator_equal<T>())
+[[gnu::always_inline]]
+static inline auto
+cxx_operator_equal(T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]) noexcept -> bool
+{
+  return (This == That);
+}
+
+template<typename T>
+requires(cxx_has_operator_not_equal<T>())
+[[gnu::always_inline]]
+static inline auto
+cxx_operator_not_equal(T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]) noexcept -> bool
+{
+  return (This != That);
+}
+
+template<typename T>
+requires(cxx_has_operator_less_than<T>())
+[[gnu::always_inline]]
+static inline auto
+cxx_operator_less_than(T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]) noexcept -> bool
+{
+  return (This < That);
+}
+
+template<typename T>
+requires(cxx_has_operator_less_than_or_equal<T>())
+[[gnu::always_inline]]
+static inline auto
+cxx_operator_less_than_or_equal(T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]) noexcept
+  -> bool
+{
+  return (This <= That);
+}
+
+template<typename T>
+requires(cxx_has_operator_greater_than<T>())
+[[gnu::always_inline]]
+static inline auto
+cxx_operator_greater_than(T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]) noexcept
+  -> bool
+{
+  return (This > That);
+}
+
+template<typename T>
+requires(cxx_has_operator_greater_than_or_equal<T>())
+[[gnu::always_inline]]
+static inline auto
+cxx_operator_greater_than_or_equal(
+  T const& This [[clang::lifetimebound]],
+  T const& That [[clang::lifetimebound]]
+) noexcept -> bool
+{
+  return (This >= That);
+}
+
+template<typename T>
+requires(detection::has_operator_three_way_comparison<T>)
+[[gnu::always_inline]]
+static inline auto
+cxx_operator_three_way_comparison(
+  T const& This [[clang::lifetimebound]],
+  T const& That [[clang::lifetimebound]]
+) noexcept -> int8_t
+{
+  auto result = (This <=> That);
+  if (result < 0) {
+    return -1;
+  } else if (result > 0) { // NOLINT(llvm-else-after-return, readability-else-after-return)
+    return 1;
+  } else if (result == 0) {
+    return 0;
+  } else {
+    return std::numeric_limits<int8_t>::max();
   }
+}
+
+template<typename T>
+requires(not detection::has_operator_three_way_comparison<T> and detection::has_operator_less_than<T> and detection::has_operator_equal<T>)
+[[gnu::always_inline]]
+static inline auto
+cxx_operator_three_way_comparison(
+  T const& This [[clang::lifetimebound]],
+  T const& That [[clang::lifetimebound]]
+) noexcept -> int8_t
+{
+  auto le = (This < That);
+  auto eq = (This == That);
+
+  if (le and not eq) {
+    return -1;
+  } else if (not le and not eq) { // NOLINT(llvm-else-after-return, readability-else-after-return)
+    return 1;
+  } else if (not le and eq) {
+    return 0;
+  } else {
+    return std::numeric_limits<int8_t>::max();
+  }
+}
+
+template<typename T>
+requires(detection::is_std_hashable<T>)
+[[gnu::always_inline]]
+static inline auto
+cxx_hash(T const& This [[clang::lifetimebound]]) noexcept -> size_t
+{
+  return ::std::hash<T>{}(This);
 }
 
 }; // namespace cxx_memory::abi
@@ -285,139 +640,317 @@ cxx_destruct(T* This [[clang::lifetimebound]]) -> void
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto cxx_abi_align() noexcept -> size_t                                                      \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_abi_align<Self>();                                                                     \
+    return ::cxx_memory::abi::cxx_abi_align<Self>();                                                                   \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto cxx_abi_size() noexcept -> size_t                                                       \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_abi_size<Self>();                                                                      \
+    return ::cxx_memory::abi::cxx_abi_size<Self>();                                                                    \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto cxx_is_default_constructible() noexcept -> bool                                         \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_is_default_constructible<Self>();                                                      \
+    return ::cxx_memory::abi::cxx_is_default_constructible<Self>();                                                    \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto cxx_is_copy_constructible() noexcept -> bool                                            \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_is_copy_constructible<Self>();                                                         \
+    return ::cxx_memory::abi::cxx_is_copy_constructible<Self>();                                                       \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto cxx_is_move_constructible() noexcept -> bool                                            \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_is_move_constructible<Self>();                                                         \
+    return ::cxx_memory::abi::cxx_is_move_constructible<Self>();                                                       \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto cxx_is_destructible() noexcept -> bool                                                  \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_is_destructible<Self>();                                                               \
+    return ::cxx_memory::abi::cxx_is_destructible<Self>();                                                             \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto cxx_is_trivially_copyable() noexcept -> bool                                            \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_is_trivially_copyable<Self>();                                                         \
+    return ::cxx_memory::abi::cxx_is_trivially_copyable<Self>();                                                       \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto cxx_is_trivially_movable() noexcept -> bool                                             \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_is_trivially_movable<Self>();                                                          \
+    return ::cxx_memory::abi::cxx_is_trivially_movable<Self>();                                                        \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto cxx_is_trivially_destructible() noexcept -> bool                                        \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_is_trivially_destructible<Self>();                                                     \
+    return ::cxx_memory::abi::cxx_is_trivially_destructible<Self>();                                                   \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_is_equality_comparable() noexcept -> bool                                           \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_is_equality_comparable<Self>();                                                      \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_has_operator_equal() noexcept -> bool                                               \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_has_operator_equal<Self>();                                                          \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_has_operator_not_equal() noexcept -> bool                                           \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_has_operator_not_equal<Self>();                                                      \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_has_operator_less_than() noexcept -> bool                                           \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_has_operator_less_than<Self>();                                                      \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_has_operator_less_than_or_equal() noexcept -> bool                                  \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_has_operator_less_than_or_equal<Self>();                                             \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_has_operator_greater_than() noexcept -> bool                                        \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_has_operator_greater_than<Self>();                                                   \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_has_operator_greater_than_or_equal() noexcept -> bool                               \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_has_operator_greater_than_or_equal<Self>();                                          \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_has_operator_three_way_comparison() noexcept -> bool                                \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_has_operator_three_way_comparison<Self>();                                           \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_is_partially_ordered() noexcept -> bool                                             \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_is_partially_ordered<Self>();                                                        \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_is_totally_ordered() noexcept -> bool                                               \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_is_totally_ordered<Self>();                                                          \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_is_hashable() noexcept -> bool                                                      \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_is_hashable<Self>();                                                                 \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_cxx_extern_type_trivial() noexcept -> bool                             \
   {                                                                                                                    \
-    return cxx_memory::abi::rust_should_impl_cxx_extern_type_trivial<Self>();                                          \
+    return ::cxx_memory::abi::rust_should_impl_cxx_extern_type_trivial<Self>();                                        \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_unpin() noexcept -> bool                                               \
   {                                                                                                                    \
-    return cxx_memory::abi::rust_should_impl_unpin<Self>();                                                            \
+    return ::cxx_memory::abi::rust_should_impl_unpin<Self>();                                                          \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_send() noexcept -> bool                                                \
   {                                                                                                                    \
-    return cxx_memory::abi::rust_should_impl_send<Self>();                                                             \
+    return ::cxx_memory::abi::rust_should_impl_send<Self>();                                                           \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_sync() noexcept -> bool                                                \
   {                                                                                                                    \
-    return cxx_memory::abi::rust_should_impl_sync<Self>();                                                             \
+    return ::cxx_memory::abi::rust_should_impl_sync<Self>();                                                           \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_drop() noexcept -> bool                                                \
   {                                                                                                                    \
-    return cxx_memory::abi::rust_should_impl_drop<Self>();                                                             \
+    return ::cxx_memory::abi::rust_should_impl_drop<Self>();                                                           \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_copy() noexcept -> bool                                                \
   {                                                                                                                    \
-    return cxx_memory::abi::rust_should_impl_copy<Self>();                                                             \
+    return ::cxx_memory::abi::rust_should_impl_copy<Self>();                                                           \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_default() noexcept -> bool                                             \
   {                                                                                                                    \
-    return cxx_memory::abi::rust_should_impl_default<Self>();                                                          \
+    return ::cxx_memory::abi::rust_should_impl_default<Self>();                                                        \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_cxx_memory_copy_new() noexcept -> bool                                 \
   {                                                                                                                    \
-    return cxx_memory::abi::rust_should_impl_cxx_memory_copy_new<Self>();                                              \
+    return ::cxx_memory::abi::rust_should_impl_cxx_memory_copy_new<Self>();                                            \
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_cxx_memory_move_new() noexcept -> bool                                 \
   {                                                                                                                    \
-    return cxx_memory::abi::rust_should_impl_cxx_memory_move_new<Self>();                                              \
+    return ::cxx_memory::abi::rust_should_impl_cxx_memory_move_new<Self>();                                            \
   }                                                                                                                    \
                                                                                                                        \
-  [[gnu::always_inline]]                                                                                               \
-  static inline auto cxx_default_new(Self* This [[clang::lifetimebound]]) noexcept -> void                             \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto rust_should_impl_eq() noexcept -> bool                                                  \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_default_new(This);                                                                     \
+    return ::cxx_memory::abi::rust_should_impl_eq<Self>();                                                             \
   }                                                                                                                    \
                                                                                                                        \
-  [[gnu::always_inline]]                                                                                               \
-  static inline auto cxx_copy_new(                                                                                     \
-    Self* This [[clang::lifetimebound]], Self const& that [[clang::lifetimebound]]                                     \
-  ) noexcept -> void                                                                                                   \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto rust_should_impl_partial_eq() noexcept -> bool                                          \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_copy_new(This, that);                                                                  \
+    return ::cxx_memory::abi::rust_should_impl_partial_eq<Self>();                                                     \
   }                                                                                                                    \
                                                                                                                        \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto rust_should_impl_partial_ord() noexcept -> bool                                         \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::rust_should_impl_partial_ord<Self>();                                                    \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto rust_should_impl_ord() noexcept -> bool                                                 \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::rust_should_impl_ord<Self>();                                                            \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto rust_should_impl_hash() noexcept -> bool                                                \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::rust_should_impl_hash<Self>();                                                           \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_is_default_constructible<T>())                           \
   [[gnu::always_inline]]                                                                                               \
-  static inline auto cxx_move_new(Self* This [[clang::lifetimebound]], Self* that [[clang::lifetimebound]]) noexcept   \
+  static inline auto cxx_default_new(T* This [[clang::lifetimebound]]) noexcept -> void                                \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_default_new(This);                                                                   \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_is_copy_constructible<T>())                              \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_copy_new(T* This [[clang::lifetimebound]], T const& that [[clang::lifetimebound]]) noexcept   \
     -> void                                                                                                            \
   {                                                                                                                    \
-    /* NOLINTNEXTLINE(hicpp-move-const-arg, performance-move-const-arg) */                                             \
-    Self&& that_rvalue = ::std::move(*that);                                                                           \
-    return cxx_memory::abi::cxx_move_new(This, ::std::forward<Self&&>(that_rvalue));                                   \
+    return ::cxx_memory::abi::cxx_copy_new(This, that);                                                                \
   }                                                                                                                    \
                                                                                                                        \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_is_move_constructible<T>())                              \
   [[gnu::always_inline]]                                                                                               \
-  static inline auto cxx_destruct(Self* This [[clang::lifetimebound]])                                                 \
-    ->void                                                                                                             \
+  static inline auto cxx_move_new(T* This [[clang::lifetimebound]], T* that [[clang::lifetimebound]]) noexcept -> void \
   {                                                                                                                    \
-    return cxx_memory::abi::cxx_destruct(This);                                                                        \
+    /* NOLINTNEXTLINE(hicpp-move-const-arg, performance-move-const-arg) */                                             \
+    return ::cxx_memory::abi::cxx_move_new(This, ::std::move(*that));                                                  \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_is_destructible<T>())                                    \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_destruct(T* This [[clang::lifetimebound]]) noexcept -> void                                   \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_destruct(This);                                                                      \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_has_operator_equal<T>())                                 \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_operator_equal(                                                                               \
+    T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]                                     \
+  ) noexcept -> bool                                                                                                   \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_operator_equal(This, That);                                                          \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_has_operator_not_equal<T>())                             \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_operator_not_equal(                                                                           \
+    T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]                                     \
+  ) noexcept -> bool                                                                                                   \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_operator_not_equal(This, That);                                                      \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_has_operator_less_than<T>())                             \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_operator_less_than(                                                                           \
+    T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]                                     \
+  ) noexcept -> bool                                                                                                   \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_operator_less_than(This, That);                                                      \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_has_operator_less_than_or_equal<T>())                    \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_operator_less_than_or_equal(                                                                  \
+    T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]                                     \
+  ) noexcept -> bool                                                                                                   \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_operator_less_than_or_equal(This, That);                                             \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_has_operator_greater_than<T>())                          \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_operator_greater_than(                                                                        \
+    T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]                                     \
+  ) noexcept -> bool                                                                                                   \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_operator_greater_than(This, That);                                                   \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_has_operator_greater_than_or_equal<T>())                 \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_operator_greater_than_or_equal(                                                               \
+    T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]                                     \
+  ) noexcept -> bool                                                                                                   \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_operator_greater_than_or_equal(This, That);                                          \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_has_operator_three_way_comparison<T>())                  \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_operator_three_way_comparison(                                                                \
+    T const& This [[clang::lifetimebound]], T const& That [[clang::lifetimebound]]                                     \
+  ) noexcept -> int8_t                                                                                                 \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_operator_three_way_comparison(This, That);                                           \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_is_hashable<T>())                                        \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_hash(T const& This [[clang::lifetimebound]]) noexcept -> size_t                               \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_hash(This);                                                                          \
   }
 
 // NOLINTEND(cppcoreguidelines-macro-usage, bugprone-macro-parentheses)
