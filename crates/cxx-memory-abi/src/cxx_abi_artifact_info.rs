@@ -23,7 +23,9 @@ pub struct CxxAbiArtifactInfo {
     pub is_rust_send: bool,
     pub is_rust_sync: bool,
     pub is_rust_copy: bool,
+    pub is_rust_debug: bool,
     pub is_rust_default: bool,
+    pub is_rust_display: bool,
     pub is_rust_drop: bool,
     pub is_rust_copy_new: bool,
     pub is_rust_move_new: bool,
@@ -51,6 +53,7 @@ impl CxxAbiArtifactInfo {
         let item_impl_drop = emit_impl_drop(self, ident, generics_binder, generics);
         let item_impl_debug = emit_impl_debug(self, ident, generics_binder, generics);
         let item_impl_default = emit_impl_default(self, ident, generics_binder, generics);
+        let item_impl_display = emit_impl_display(self, ident, generics_binder, generics);
         let item_impl_moveit_copy_new = emit_impl_moveit_copy_new(self, ident, generics_binder, generics);
         let item_impl_moveit_move_new = emit_impl_moveit_move_new(self, ident, generics_binder, generics);
         let item_impl_partial_eq = emit_impl_partial_eq(self, ident, generics_binder, generics);
@@ -66,7 +69,6 @@ impl CxxAbiArtifactInfo {
             #item_struct
             #item_impl_cxx_extern_type
             #item_impl_drop
-            #item_impl_debug
             #item_impl_default
             #item_impl_moveit_copy_new
             #item_impl_moveit_move_new
@@ -75,6 +77,8 @@ impl CxxAbiArtifactInfo {
             #item_impl_partial_ord
             #item_impl_ord
             #item_impl_hash
+            #item_impl_debug
+            #item_impl_display
             #item_mod_cxx_bridge
             #item_info_test_module
         }
@@ -276,12 +280,22 @@ fn emit_impl_debug(
     generics_binder: &syn::Generics,
     generics: &syn::Generics,
 ) -> syn::ItemImpl {
-    let name = info.rust_name;
-    syn::parse_quote! {
-        #[cfg(feature = "debug")]
-        impl #generics_binder ::core::fmt::Debug for #ident #generics {
-            fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                f.debug_struct(#name).finish()
+    if info.is_rust_debug {
+        syn::parse_quote! {
+            impl #generics_binder ::core::fmt::Debug for #ident #generics {
+                fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    let string = self::ffi::cxx_debug(self);
+                    write!(f, "{string}")
+                }
+            }
+        }
+    } else {
+        let name = info.rust_name;
+        syn::parse_quote! {
+            impl #generics_binder ::core::fmt::Debug for #ident #generics {
+                fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    f.debug_struct(#name).finish()
+                }
             }
         }
     }
@@ -305,6 +319,27 @@ fn emit_impl_default(
                             self::ffi::cxx_default_new(this);
                         })
                     }
+                }
+            }
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "alloc")]
+fn emit_impl_display(
+    info: &CxxAbiArtifactInfo,
+    ident: &syn::Ident,
+    generics_binder: &syn::Generics,
+    generics: &syn::Generics,
+) -> Option<syn::ItemImpl> {
+    if info.is_rust_display {
+        Some(syn::parse_quote! {
+            impl #generics_binder ::core::fmt::Display for #ident #generics {
+                fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    let string = self::ffi::cxx_display(self);
+                    write!(f, "{string}")
                 }
             }
         })
@@ -674,6 +709,20 @@ fn emit_item_mod_cxx_bridge(info: &CxxAbiArtifactInfo, ident: &syn::Ident, gener
     } else {
         None
     };
+    let cxx_debug: Option<syn::ForeignItemFn> = if info.is_rust_debug {
+        Some(syn::parse_quote! {
+            fn cxx_debug #generics (This: & #ident #generics) -> String;
+        })
+    } else {
+        None
+    };
+    let cxx_display: Option<syn::ForeignItemFn> = if info.is_rust_display {
+        Some(syn::parse_quote! {
+            fn cxx_display #generics (This: & #ident #generics) -> String;
+        })
+    } else {
+        None
+    };
     syn::parse_quote! {
         #[cxx::bridge]
         pub(crate) mod ffi {
@@ -696,6 +745,8 @@ fn emit_item_mod_cxx_bridge(info: &CxxAbiArtifactInfo, ident: &syn::Ident, gener
                 #cxx_operator_greater_than_or_equal
                 #cxx_operator_three_way_comparison
                 #cxx_hash
+                #cxx_debug
+                #cxx_display
             }
         }
     }

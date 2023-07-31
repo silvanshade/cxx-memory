@@ -1,5 +1,6 @@
 #pragma once
 
+#include "rust/cxx.h"
 #include "sys/types.h"
 
 #include <compare>
@@ -8,6 +9,7 @@
 #include <limits>
 #include <memory>
 #include <ranges>
+#include <sstream>
 #include <type_traits>
 #include <vector>
 
@@ -89,19 +91,26 @@ concept is_std_hashable = requires(T const& arg) { //
 template<typename T>
 concept has_operator_std_string = requires(T const& arg) { //
   {
-    T::operator ::std::string()(arg)
+    arg.operator ::std::string()
   } -> ::std::same_as<::std::string>;
+};
+
+template<typename T>
+concept has_operator_std_string_view = requires(T const& arg) { //
+  {
+    arg.operator ::std::string_view()
+  } -> ::std::same_as<::std::string_view>;
 };
 
 template<typename T>
 concept has_to_string = requires(T const& arg) { //
   {
-    to_string(arg)
+    std::to_string(arg)
   } -> ::std::same_as<::std::string>;
 };
 
 template<typename T>
-concept has_ostream_left_shift = requires(std::ostream& os, T const& arg) { //
+concept has_operator_ostream_left_shift = requires(T const& arg, std::ostream& os) { //
   {
     os << arg
   } -> ::std::same_as<::std::ostream&>;
@@ -311,6 +320,23 @@ cxx_is_hashable() noexcept -> bool
 template<typename T>
 [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
 constexpr static inline auto
+cxx_is_debuggable() noexcept -> bool
+{
+  return detection::has_operator_ostream_left_shift<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+cxx_is_displayable() noexcept -> bool
+{
+  return detection::has_to_string<T> or detection::has_operator_std_string<T> or
+         detection::has_operator_std_string_view<T>;
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
 rust_should_impl_cxx_extern_type_trivial() noexcept -> bool
 {
   return cxx_is_trivially_movable<T>();
@@ -419,6 +445,22 @@ constexpr static inline auto
 rust_should_impl_hash() noexcept -> bool
 {
   return cxx_is_hashable<T>();
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+rust_should_impl_debug() noexcept -> bool
+{
+  return cxx_is_debuggable<T>();
+}
+
+template<typename T>
+[[nodiscard]] [[gnu::always_inline]] [[gnu::const]]
+constexpr static inline auto
+rust_should_impl_display() noexcept -> bool
+{
+  return cxx_is_displayable<T>();
 }
 
 } // namespace cxx_memory::abi
@@ -581,6 +623,45 @@ static inline auto
 cxx_hash(T const& This [[clang::lifetimebound]]) noexcept -> size_t
 {
   return ::std::hash<T>{}(This);
+}
+
+template<typename T>
+requires(detection::has_operator_ostream_left_shift<T>)
+[[gnu::always_inline]]
+static inline auto
+cxx_debug(T const& This [[clang::lifetimebound]]) noexcept -> rust::String
+{
+  std::ostringstream os;
+  os << This;
+  return rust::String::lossy(os.str());
+}
+
+template<typename T>
+requires(detection::has_to_string<T>)
+[[gnu::always_inline]]
+static inline auto
+cxx_display(T const& This [[clang::lifetimebound]]) noexcept -> rust::String
+{
+  return rust::String::lossy(std::to_string(This));
+}
+
+template<typename T>
+requires(not detection::has_to_string<T> and detection::has_operator_std_string<T>)
+[[gnu::always_inline]]
+static inline auto
+cxx_display(T const& This [[clang::lifetimebound]]) noexcept -> rust::String
+{
+  return rust::String::lossy(This.operator std::string());
+}
+
+// FIXME: optimize this to use `&str` instead of `String`
+template<typename T>
+requires(not detection::has_to_string<T> and not detection::has_operator_std_string<T> and detection::has_operator_std_string_view<T>)
+[[gnu::always_inline]]
+static inline auto
+cxx_display(T const& This [[clang::lifetimebound]]) noexcept -> rust::String
+{
+  return rust::String::lossy(std::string{ This.operator std::string_view() });
 }
 
 }; // namespace cxx_memory::abi
@@ -758,6 +839,18 @@ cxx_hash(T const& This [[clang::lifetimebound]]) noexcept -> size_t
   }                                                                                                                    \
                                                                                                                        \
   [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_is_debuggable() noexcept -> bool                                                    \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_is_debuggable<Self>();                                                               \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto cxx_is_displayable() noexcept -> bool                                                   \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_is_displayable<Self>();                                                              \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
   constexpr static inline auto rust_should_impl_cxx_extern_type_trivial() noexcept -> bool                             \
   {                                                                                                                    \
     return ::cxx_memory::abi::rust_should_impl_cxx_extern_type_trivial<Self>();                                        \
@@ -839,6 +932,18 @@ cxx_hash(T const& This [[clang::lifetimebound]]) noexcept -> size_t
   constexpr static inline auto rust_should_impl_hash() noexcept -> bool                                                \
   {                                                                                                                    \
     return ::cxx_memory::abi::rust_should_impl_hash<Self>();                                                           \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto rust_should_impl_debug() noexcept -> bool                                               \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::rust_should_impl_debug<Self>();                                                          \
+  }                                                                                                                    \
+                                                                                                                       \
+  [[nodiscard]] [[gnu::always_inline]] [[gnu::const]]                                                                  \
+  constexpr static inline auto rust_should_impl_display() noexcept -> bool                                             \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::rust_should_impl_display<Self>();                                                        \
   }                                                                                                                    \
                                                                                                                        \
   template<typename T>                                                                                                 \
@@ -951,6 +1056,22 @@ cxx_hash(T const& This [[clang::lifetimebound]]) noexcept -> size_t
   static inline auto cxx_hash(T const& This [[clang::lifetimebound]]) noexcept -> size_t                               \
   {                                                                                                                    \
     return ::cxx_memory::abi::cxx_hash(This);                                                                          \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_is_debuggable<T>())                                      \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_debug(T const& This [[clang::lifetimebound]]) noexcept -> rust::string                        \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_debug(This);                                                                         \
+  }                                                                                                                    \
+                                                                                                                       \
+  template<typename T>                                                                                                 \
+  requires(::std::same_as<T, Self> and ::cxx_memory::abi::cxx_is_displayable<T>())                                     \
+  [[gnu::always_inline]]                                                                                               \
+  static inline auto cxx_display(T const& This [[clang::lifetimebound]]) noexcept -> rust::string                      \
+  {                                                                                                                    \
+    return ::cxx_memory::abi::cxx_display(This);                                                                       \
   }
 
 // NOLINTEND(cppcoreguidelines-macro-usage, bugprone-macro-parentheses)

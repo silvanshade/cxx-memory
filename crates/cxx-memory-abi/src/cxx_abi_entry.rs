@@ -67,7 +67,9 @@ impl<'ctx> CxxAbiEntry<'ctx> {
                     let is_rust_sync = self::ffi::rust_should_impl_sync();
                     let is_rust_copy = self::ffi::rust_should_impl_copy();
                     let is_rust_drop = self::ffi::rust_should_impl_drop();
+                    let is_rust_debug = self::ffi::rust_should_impl_debug();
                     let is_rust_default = self::ffi::rust_should_impl_default();
+                    let is_rust_display = self::ffi::rust_should_impl_display();
                     let is_rust_copy_new = self::ffi::rust_should_impl_cxx_memory_copy_new();
                     let is_rust_move_new = self::ffi::rust_should_impl_cxx_memory_move_new();
                     let is_rust_eq = self::ffi::rust_should_impl_eq();
@@ -96,7 +98,9 @@ impl<'ctx> CxxAbiEntry<'ctx> {
                         is_rust_send,
                         is_rust_sync,
                         is_rust_copy,
+                        is_rust_debug,
                         is_rust_default,
+                        is_rust_display,
                         is_rust_drop,
                         is_rust_copy_new,
                         is_rust_move_new,
@@ -152,9 +156,11 @@ impl<'ctx> CxxAbiEntry<'ctx> {
                         fn rust_should_impl_unpin() -> bool;
                         fn rust_should_impl_send() -> bool;
                         fn rust_should_impl_sync() -> bool;
-                        fn rust_should_impl_drop() -> bool;
                         fn rust_should_impl_copy() -> bool;
+                        fn rust_should_impl_debug() -> bool;
                         fn rust_should_impl_default() -> bool;
+                        fn rust_should_impl_display() -> bool;
+                        fn rust_should_impl_drop() -> bool;
                         fn rust_should_impl_cxx_memory_copy_new() -> bool;
                         fn rust_should_impl_cxx_memory_move_new() -> bool;
                         fn rust_should_impl_eq() -> bool;
