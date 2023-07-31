@@ -38,111 +38,111 @@ template<typename T>
 concept has_operator_equal = requires(T const& lhs, T const& rhs) { //
   {
     lhs == rhs
-  } -> ::std::same_as<bool>;
+  } -> std::same_as<bool>;
 };
 
 template<typename T>
 concept has_operator_not_equal = requires(T const& lhs, T const& rhs) { //
   {
     lhs != rhs
-  } -> ::std::same_as<bool>;
+  } -> std::same_as<bool>;
 };
 
 template<typename T>
 concept has_operator_less_than = requires(T const& lhs, T const& rhs) { //
   {
     lhs < rhs
-  } -> ::std::same_as<bool>;
+  } -> std::same_as<bool>;
 };
 
 template<typename T>
 concept has_operator_less_than_or_equal = requires(T const& lhs, T const& rhs) { //
   {
     lhs <= rhs
-  } -> ::std::same_as<bool>;
+  } -> std::same_as<bool>;
 };
 
 template<typename T>
 concept has_operator_greater_than = requires(T const& lhs, T const& rhs) { //
   {
     lhs > rhs
-  } -> ::std::same_as<bool>;
+  } -> std::same_as<bool>;
 };
 
 template<typename T>
 concept has_operator_greater_than_or_equal = requires(T const& lhs, T const& rhs) { //
   {
     lhs >= rhs
-  } -> ::std::same_as<bool>;
+  } -> std::same_as<bool>;
 };
 
 template<typename T>
 concept has_operator_three_way_comparison = requires(T const& lhs, T const& rhs) { //
-  requires same_as_any_of<decltype(lhs <=> rhs), ::std::partial_ordering, ::std::strong_ordering>;
+  requires same_as_any_of<decltype(lhs <=> rhs), std::partial_ordering, std::strong_ordering>;
 };
 
 template<typename T>
 concept is_std_hashable = requires(T const& arg) { //
   {
-    ::std::hash<T>{}(arg)
-  } -> ::std::same_as<::std::size_t>;
+    std::hash<T>{}(arg)
+  } -> std::same_as<std::size_t>;
 };
 
 template<typename T>
 concept has_operator_std_string = requires(T const& arg) { //
   {
-    arg.operator ::std::string()
-  } -> ::std::same_as<::std::string>;
+    arg.operator std::string()
+  } -> std::same_as<std::string>;
 };
 
 template<typename T>
 concept has_operator_std_string_view = requires(T const& arg) { //
   {
-    arg.operator ::std::string_view()
-  } -> ::std::same_as<::std::string_view>;
+    arg.operator std::string_view()
+  } -> std::same_as<std::string_view>;
 };
 
 template<typename T>
 concept has_to_string = requires(T const& arg) { //
   {
     std::to_string(arg)
-  } -> ::std::same_as<::std::string>;
+  } -> std::same_as<std::string>;
 };
 
 template<typename T>
 concept has_operator_ostream_left_shift = requires(T const& arg, std::ostream& os) { //
   {
     os << arg
-  } -> ::std::same_as<::std::ostream&>;
+  } -> std::same_as<std::ostream&>;
 };
 
 template<typename T, typename It>
 concept is_constructible_from_iterator = requires(It first, It last) { //
-  requires ::std::input_iterator<It>;
+  requires std::input_iterator<It>;
   {
     T{ first, last }
-  } -> ::std::same_as<T>;
+  } -> std::same_as<T>;
 };
 
 template<typename T>
-concept is_iterable = ::std::ranges::range<T>;
+concept is_iterable = std::ranges::range<T>;
 
 template<typename T, typename V>
 concept is_input_iterable = requires { //
-  requires ::std::ranges::input_range<T>;
-  requires ::std::same_as<::std::iter_value_t<::std::ranges::iterator_t<T>>, ::std::remove_reference_t<V>>;
+  requires std::ranges::input_range<T>;
+  requires std::same_as<std::iter_value_t<std::ranges::iterator_t<T>>, std::remove_reference_t<V>>;
 };
 
 template<typename T>
 concept is_input_copy_iterator = requires { //
-  requires ::std::input_iterator<T>;
-  requires ::std::same_as<::std::iter_reference_t<T>, ::std::add_lvalue_reference_t<::std::iter_value_t<T>>>;
+  requires std::input_iterator<T>;
+  requires std::same_as<std::iter_reference_t<T>, std::add_lvalue_reference_t<std::iter_value_t<T>>>;
 };
 
 template<typename T>
 concept is_input_move_iterator = requires { //
-  requires ::std::input_iterator<T>;
-  requires ::std::same_as<::std::iter_reference_t<T>, ::std::add_rvalue_reference_t<::std::iter_value_t<T>>>;
+  requires std::input_iterator<T>;
+  requires std::same_as<std::iter_reference_t<T>, std::add_rvalue_reference_t<std::iter_value_t<T>>>;
 };
 } // namespace cxx_memory::abi::detection
 
@@ -168,7 +168,7 @@ template<typename T, typename... Args>
 constexpr static inline auto
 cxx_is_constructible() noexcept -> bool
 {
-  return ::std::is_constructible_v<T, Args...>;
+  return std::is_constructible_v<T, Args...>;
 }
 
 template<typename T>
@@ -176,7 +176,7 @@ template<typename T>
 constexpr static inline auto
 cxx_is_default_constructible() noexcept -> bool
 {
-  return ::std::is_default_constructible_v<T>;
+  return std::is_default_constructible_v<T>;
 }
 
 template<typename T>
@@ -184,7 +184,7 @@ template<typename T>
 constexpr static inline auto
 cxx_is_copy_constructible() noexcept -> bool
 {
-  return ::std::is_copy_constructible_v<T>;
+  return std::is_copy_constructible_v<T>;
 }
 
 template<typename T>
@@ -192,7 +192,7 @@ template<typename T>
 constexpr static inline auto
 cxx_is_move_constructible() noexcept -> bool
 {
-  return ::std::is_move_constructible_v<T>;
+  return std::is_move_constructible_v<T>;
 }
 
 template<typename T>
@@ -200,7 +200,7 @@ template<typename T>
 constexpr static inline auto
 cxx_is_destructible() noexcept -> bool
 {
-  return ::std::is_destructible_v<T>;
+  return std::is_destructible_v<T>;
 }
 
 template<typename T>
@@ -208,7 +208,7 @@ template<typename T>
 constexpr static inline auto
 cxx_is_trivially_copyable() noexcept -> bool
 {
-  return ::std::is_trivially_copyable_v<T>;
+  return std::is_trivially_copyable_v<T>;
 }
 
 template<typename T>
@@ -216,7 +216,7 @@ template<typename T>
 constexpr static inline auto
 cxx_is_trivially_movable() noexcept -> bool
 {
-  return ::std::is_trivially_move_constructible_v<T> and ::std::is_trivially_destructible_v<T>;
+  return std::is_trivially_move_constructible_v<T> and std::is_trivially_destructible_v<T>;
 }
 
 template<typename T>
@@ -224,7 +224,7 @@ template<typename T>
 constexpr static inline auto
 cxx_is_trivially_destructible() noexcept -> bool
 {
-  return ::std::is_trivially_destructible_v<T>;
+  return std::is_trivially_destructible_v<T>;
 }
 
 template<typename T>
@@ -232,7 +232,7 @@ template<typename T>
 constexpr static inline auto
 cxx_is_equality_comparable() noexcept -> bool
 {
-  return ::std::equality_comparable<T>;
+  return std::equality_comparable<T>;
 }
 
 template<typename T>
@@ -472,7 +472,7 @@ requires(cxx_is_constructible<T, Args...>())
 static inline auto
 cxx_placement_new(T* This [[clang::lifetimebound]], Args&&... args) noexcept -> void
 {
-  new (This) T(::std::forward<Args>(args)...);
+  new (This) T(std::forward<Args>(args)...);
 }
 
 template<typename T>
@@ -489,7 +489,7 @@ requires(cxx_is_copy_constructible<T>())
 [[gnu::always_inline]]
 static inline auto
 cxx_copy_new(T* This [[clang::lifetimebound]], T const& that [[clang::lifetimebound]]) noexcept -> void
-requires ::std::is_lvalue_reference_v<decltype(that)>
+requires std::is_lvalue_reference_v<decltype(that)>
 {
   new (This) T(that);
 }
@@ -499,7 +499,7 @@ requires(cxx_is_move_constructible<T>())
 [[gnu::always_inline]]
 static inline auto
 cxx_move_new(T* This [[clang::lifetimebound]], T&& that [[clang::lifetimebound]]) noexcept -> void
-requires ::std::is_rvalue_reference_v<decltype(that)>
+requires std::is_rvalue_reference_v<decltype(that)>
 {
   new (This) T(std::forward<T>(that));
 }
@@ -510,7 +510,7 @@ requires(cxx_is_destructible<T>())
 static inline auto
 cxx_destruct(T* This [[clang::lifetimebound]]) -> void
 {
-  ::std::destroy_at(This);
+  std::destroy_at(This);
 }
 
 template<typename T>
@@ -622,7 +622,7 @@ requires(detection::is_std_hashable<T>)
 static inline auto
 cxx_hash(T const& This [[clang::lifetimebound]]) noexcept -> size_t
 {
-  return ::std::hash<T>{}(This);
+  return std::hash<T>{}(This);
 }
 
 template<typename T>
