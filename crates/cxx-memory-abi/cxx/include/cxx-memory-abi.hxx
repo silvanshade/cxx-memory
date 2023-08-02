@@ -11,7 +11,6 @@
 #include <ranges>
 #include <sstream>
 #include <type_traits>
-#include <vector>
 
 // NOLINTBEGIN(google-runtime-int)
 using c_char = char;
